@@ -15,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
+	payuc "github.com/durianpay/fullstack-boilerplate/internal/module/payment/usecase"
 )
 
 func main() {
@@ -41,8 +42,11 @@ func main() {
 
 	authH := ah.NewAuthHandler(authUC)
 
+	payUC := payuc.New()
+	
 	apiHandler := &api.APIHandler{
 		Auth: authH,
+		Payment: payUC,
 	}
 
 	server := srv.NewServer(apiHandler, config.OpenapiYamlLocation)
