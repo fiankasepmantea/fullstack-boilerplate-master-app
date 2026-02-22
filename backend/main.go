@@ -64,6 +64,7 @@ func initDB(db *sql.DB) error {
 		  password_hash TEXT NOT NULL,
 		  role TEXT NOT NULL
 		);`,
+		// ✅ CREATE PAYMENTS TABLE
 		`CREATE TABLE IF NOT EXISTS payments (
 		  id TEXT PRIMARY KEY,
 		  amount INTEGER NOT NULL,
@@ -96,15 +97,16 @@ func initDB(db *sql.DB) error {
 			"operation@test.com", string(hash), "operation")
 	}
 
-	// if _, err := db.Exec(`
-	// INSERT OR IGNORE INTO payments(id,amount,status,user_id) VALUES
-	// ('pay_001',100000,'processing','1'),
-	// ('pay_002',250000,'completed','1'),
-	// ('pay_003',75000,'failed','1'),
-	// ('pay_004',500000,'processing','2');
-	// `); err != nil {
-	// 	return err
-	// }
+	// ✅ SEED PAYMENTS dengan status yang benar
+	if _, err := db.Exec(`
+	INSERT OR IGNORE INTO payments(id,amount,status,user_id) VALUES
+	('pay_001',100000,'processing','1'),
+	('pay_002',250000,'completed','1'),
+	('pay_003',75000,'failed','1'),
+	('pay_004',500000,'processing','2');
+	`); err != nil {
+		return err
+	}
 
 	db.SetConnMaxLifetime(time.Minute * 5)
 	return nil

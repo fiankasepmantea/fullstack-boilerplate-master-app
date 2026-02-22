@@ -28,13 +28,7 @@ func (h *APIHandler) GetDashboardV1Payments(
 ) {
 	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
 
-	// PASS FILTER PARAMS TO USECASE
-	filter := payuc.ListFilter{
-		Status: params.Status,
-		Sort:   params.Sort,
-	}
-
-	list, err := h.Payment.ListByUserFiltered(userID, filter)
+	list, err := h.Payment.ListByUser(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
