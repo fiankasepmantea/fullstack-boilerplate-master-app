@@ -25,31 +25,35 @@ const (
 	idleTimeout  = 60
 )
 
-// NewServer make router chi with CORS & JWT middleware
 func NewServer(apiHandler openapigen.ServerInterface, openapiYamlPath string) *Server {
 	r := chi.NewRouter()
 
+	// ✅ GLOBAL middleware — HARUS sebelum route
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
 	}))
 
-	// Logging middleware
 	r.Use(middleware.Logging)
 
-	// Public routes (login, register, dll)
-	r.Group(func(pub chi.Router) {
-		openapigen.HandlerFromMux(apiHandler, pub)
+	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 	})
 
-	// Protected routes (JWT)
+	// ✅ PUBLIC ROUTES (tanpa JWT)
+	r.Group(func(pub chi.Router) {
+		pub.Post("/dashboard/v1/auth/login", apiHandler.PostDashboardV1AuthLogin)
+	})
+
+	// ✅ PROTECTED ROUTES (pakai JWT)
 	r.Group(func(priv chi.Router) {
-		priv.Use(JWTMiddleware) // pakai JWT middleware
-		priv.Get("/dashboard/v1/payments", func(w http.ResponseWriter, r *http.Request) {
-			apiHandler.GetDashboardV1Payments(w, r, openapigen.GetDashboardV1PaymentsParams{})
-		})
+		priv.Use(JWTMiddleware)
+
+		priv.Get("/dashboard/v1/payments",
+			openapigen.Handler(apiHandler).ServeHTTP,
+		)
 	})
 
 	return &Server{
@@ -57,7 +61,6 @@ func NewServer(apiHandler openapigen.ServerInterface, openapiYamlPath string) *S
 	}
 }
 
-// Start server with graceful shutdown
 func (s *Server) Start(addr string) {
 	service := &http.Server{
 		Addr:         addr,
@@ -74,7 +77,6 @@ func (s *Server) Start(addr string) {
 		}
 	}()
 
-	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
@@ -82,6 +84,7 @@ func (s *Server) Start(addr string) {
 	log.Println("Shutting down gracefully...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	if err := service.Shutdown(ctx); err != nil {
 		log.Fatalf("Forced shutdown: %v", err)
 	}
@@ -89,7 +92,6 @@ func (s *Server) Start(addr string) {
 	log.Println("Server stopped cleanly ✔")
 }
 
-// Routes return router
 func (s *Server) Routes() http.Handler {
 	return s.router
 }

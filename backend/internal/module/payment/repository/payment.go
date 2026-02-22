@@ -38,3 +38,22 @@ func (r *Repo) ListByUser(userID string) ([]Payment, error) {
 
 	return out, nil
 }
+
+func (r *Repo) FindByID(id string) (Payment, error) {
+	var p Payment
+	err := r.DB.QueryRow(
+		`SELECT id, amount, status, user_id FROM payments WHERE id=?`,
+		id,
+	).Scan(&p.ID, &p.Amount, &p.Status, &p.UserID)
+
+	return p, err
+}
+
+func (r *Repo) Update(p Payment) error {
+	_, err := r.DB.Exec(
+		`UPDATE payments SET status=? WHERE id=?`,
+		p.Status,
+		p.ID,
+	)
+	return err
+}

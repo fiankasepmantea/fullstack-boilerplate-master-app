@@ -2,22 +2,36 @@ export const useApi = () => {
   const config = useRuntimeConfig()
   const baseURL = config.public.apiBase
 
+  const authHeaders = () => {
+    const token = localStorage.getItem('jwt')
+
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+  }
+
   const get = async (url: string) => {
-    const res = await fetch(baseURL + url, {
-      credentials: 'include',
+    return await $fetch(baseURL + url, {
+      headers: authHeaders(),
     })
-    return res.json()
   }
 
   const post = async (url: string, data: any) => {
-    const res = await fetch(baseURL + url, {
+    return await $fetch(baseURL + url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      credentials: 'include',
+      headers: authHeaders(),
+      body: data,
     })
-    return res.json()
   }
 
-  return { get, post }
+  const put = async (url: string, data?: any) => {
+    return await $fetch(baseURL + url, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: data,
+    })
+  }
+
+  return { get, post, put }
 }

@@ -2,16 +2,16 @@ package api
 
 import (
 	"encoding/json"
-	"net/http"
-
-	ah "github.com/durianpay/fullstack-boilerplate/internal/module/auth/handler"
-	openapi "github.com/durianpay/fullstack-boilerplate/internal/openapigen"
 	"github.com/durianpay/fullstack-boilerplate/internal/middleware"
+	ah "github.com/durianpay/fullstack-boilerplate/internal/module/auth/handler"
 	payuc "github.com/durianpay/fullstack-boilerplate/internal/module/payment/usecase"
+	openapi "github.com/durianpay/fullstack-boilerplate/internal/openapigen"
+	"net/http"
+	"strconv"
 )
 
 type APIHandler struct {
-	Auth *ah.AuthHandler
+	Auth    *ah.AuthHandler
 	Payment *payuc.Usecase
 }
 
@@ -28,14 +28,28 @@ func (h *APIHandler) GetDashboardV1Payments(
 ) {
 	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
 
-	list, _ := h.Payment.ListByUser(userID)
+	filter := payuc.ListFilter{
+		Status: params.Status,
+		ID:     params.Id,
+		Sort:   params.Sort,
+	}
+
+	list, err := h.Payment.ListByUserFiltered(userID, filter)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	var out []openapi.Payment
 	for _, p := range list {
+		id := p.ID
+		amt := strconv.FormatInt(p.Amount, 10)
+		st := p.Status
+
 		out = append(out, openapi.Payment{
-			Id:     ptr(p.ID),
-			Amount: ptr(p.Amount),
-			Status: ptr(p.Status),
+			Id:     &id,
+			Amount: &amt,
+			Status: &st,
 		})
 	}
 
@@ -44,4 +58,3 @@ func (h *APIHandler) GetDashboardV1Payments(
 	})
 }
 
-func ptr(s string) *string { return &s }

@@ -16,6 +16,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 	payuc "github.com/durianpay/fullstack-boilerplate/internal/module/payment/usecase"
+	payrepo "github.com/durianpay/fullstack-boilerplate/internal/module/payment/repository"
 )
 
 func main() {
@@ -42,8 +43,9 @@ func main() {
 
 	authH := ah.NewAuthHandler(authUC)
 
-	payUC := payuc.New()
-	
+	paymentRepo := payrepo.New(db)
+	payUC := payuc.New(paymentRepo)
+
 	apiHandler := &api.APIHandler{
 		Auth: authH,
 		Payment: payUC,
@@ -57,40 +59,60 @@ func main() {
 }
 
 func initDB(db *sql.DB) error {
-	// create tables if not exists
 	stmts := []string{
+
+		// USERS TABLE
 		`CREATE TABLE IF NOT EXISTS users (
 		  id INTEGER PRIMARY KEY AUTOINCREMENT,
 		  email TEXT NOT NULL UNIQUE,
 		  password_hash TEXT NOT NULL,
 		  role TEXT NOT NULL
 		);`,
+
+		// PAYMENTS TABLE  ← TAMBAH INI
+		`CREATE TABLE IF NOT EXISTS payments (
+		  id TEXT PRIMARY KEY,
+		  amount INTEGER NOT NULL,
+		  status TEXT NOT NULL,
+		  user_id TEXT NOT NULL
+		);`,
 	}
+
 	for _, s := range stmts {
 		if _, err := db.Exec(s); err != nil {
 			return err
 		}
 	}
-	// seed admin user if not exists
+
+	// ===== SEED USERS =====
 	var cnt int
 	row := db.QueryRow("SELECT COUNT(1) FROM users")
 	if err := row.Scan(&cnt); err != nil {
 		return err
 	}
+
 	if cnt == 0 {
 		hash, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		if _, err := db.Exec("INSERT INTO users(email, password_hash, role) VALUES (?, ?, ?)", "cs@test.com", string(hash), "cs"); err != nil {
-			return err
-		}
-		if _, err := db.Exec("INSERT INTO users(email, password_hash, role) VALUES (?, ?, ?)", "operation@test.com", string(hash), "operation"); err != nil {
-			return err
-		}
+
+		db.Exec("INSERT INTO users(email,password_hash,role) VALUES (?,?,?)",
+			"cs@test.com", string(hash), "cs")
+
+		db.Exec("INSERT INTO users(email,password_hash,role) VALUES (?,?,?)",
+			"operation@test.com", string(hash), "operation")
 	}
 
-	const dbLifetime = time.Minute * 5
-	db.SetConnMaxLifetime(dbLifetime)
+	// ===== SEED PAYMENTS =====
+	if _, err := db.Exec(`
+	INSERT OR IGNORE INTO payments(id,amount,status,user_id) VALUES
+	('pay_001',100000,'pending','1'),
+	('pay_002',250000,'success','1');
+	`); err != nil {
+		return err
+	}
+
+	db.SetConnMaxLifetime(time.Minute * 5)
 	return nil
 }

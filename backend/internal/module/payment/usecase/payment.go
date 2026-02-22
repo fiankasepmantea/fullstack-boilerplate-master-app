@@ -1,21 +1,65 @@
 package usecase
 
-type Payment struct {
-	ID     string
-	Amount string
-	Status string
-	UserID string
+import (
+	"sort"
+
+	"github.com/durianpay/fullstack-boilerplate/internal/module/payment/repository"
+)
+
+type Usecase struct {
+	repo *repository.Repo
 }
 
-type Usecase struct{}
-
-func New() *Usecase {
-	return &Usecase{}
+func New(repo *repository.Repo) *Usecase {
+	return &Usecase{repo: repo}
 }
 
-func (u *Usecase) ListByUser(userID string) ([]Payment, error) {
-	return []Payment{
-		{"pay_001", "100000", "pending", userID},
-		{"pay_002", "250000", "success", userID},
-	}, nil
+type ListFilter struct {
+	Status *string
+	ID     *string
+	Sort   *string
+}
+
+func (u *Usecase) ListByUserFiltered(
+	userID string,
+	f ListFilter,
+) ([]repository.Payment, error) {
+
+	list, err := u.repo.ListByUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []repository.Payment
+
+	for _, p := range list {
+
+		// ✅ STATUS FILTER
+		if f.Status != nil && *f.Status != "" && p.Status != *f.Status {
+			continue
+		}
+
+		// ✅ ID FILTER
+		if f.ID != nil && *f.ID != "" && p.ID != *f.ID {
+			continue
+		}
+
+		out = append(out, p)
+	}
+
+	// ✅ SORT
+	if f.Sort != nil {
+		switch *f.Sort {
+		case "amount_asc":
+			sort.Slice(out, func(i, j int) bool {
+				return out[i].Amount < out[j].Amount
+			})
+		case "amount_desc":
+			sort.Slice(out, func(i, j int) bool {
+				return out[i].Amount > out[j].Amount
+			})
+		}
+	}
+
+	return out, nil
 }

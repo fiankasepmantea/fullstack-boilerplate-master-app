@@ -1,20 +1,38 @@
 import { useApi } from './useApi'
-import { ref } from 'vue'
 
-export const usePayment = () => {
-  const { get } = useApi()
-  const payments = ref<any[]>([])
+export const usePayments = () => {
+  const api = useApi()
 
-  const fetchPayments = async () => {
-    try {
-      const res = await get('/dashboard/v1/payments')
-      payments.value = res.data || []
-      return payments.value
-    } catch (err) {
-      console.error('Failed to fetch payments', err)
-      return []
-    }
+  const list = async (params?: { status?: string; sort?: string }) => {
+    const qs = new URLSearchParams()
+
+    if (params?.status) qs.append('status', params.status)
+    if (params?.sort) qs.append('sort', params.sort)
+
+    const q = qs.toString()
+    const url = '/dashboard/v1/payments' + (q ? `?${q}` : '')
+
+    const res: any = await api.get(url)
+
+    console.log('RAW PAYMENT RES:', res)
+
+    // 🔥 HANDLE kalau string
+    const data =
+      typeof res === 'string'
+        ? JSON.parse(res)
+        : res
+
+    console.log('PARSED PAYMENT RES:', data)
+
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.payments)) return data.payments
+
+    return []
   }
 
-  return { payments, fetchPayments }
+  const review = async (id: string) => {
+    return await api.put(`/dashboard/v1/payment/${id}/review`)
+  }
+
+  return { list, review }
 }

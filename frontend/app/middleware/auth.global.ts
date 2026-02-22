@@ -1,10 +1,11 @@
-import { useAuth } from '~/composables/useAuth'
-
 export default defineNuxtRouteMiddleware((to) => {
-  const { isAuthenticated } = useAuth()
-  const publicPages = ['/', '/login']
-  const authRequired = !publicPages.includes(to.path)
+  const token = useState<string | null>('auth_token')
 
-  if (authRequired && !isAuthenticated()) return navigateTo('/login')
-  if (to.path === '/login' && isAuthenticated()) return navigateTo('/dashboard')
+  if (!token.value && to.path !== '/login') {
+    return navigateTo('/login')
+  }
+
+  if (token.value && to.path === '/login') {
+    return navigateTo('/payments')
+  }
 })

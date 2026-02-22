@@ -5,7 +5,7 @@
         <h1 class="text-xl font-bold">My App</h1>
         <nav>
           <NuxtLink class="mr-4" to="/">Home</NuxtLink>
-          <NuxtLink v-if="!isAuthenticated()" to="/login">Login</NuxtLink>
+          <NuxtLink v-if="!isAuthenticated" to="/login">Login</NuxtLink>
           <button v-else @click="logout" class="bg-red-500 px-3 py-1 rounded">Logout</button>
         </nav>
       </div>

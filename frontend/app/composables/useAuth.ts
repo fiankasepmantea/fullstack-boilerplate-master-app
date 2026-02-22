@@ -1,41 +1,49 @@
-import { ref, onMounted } from 'vue'
-import { useRouter } from '#app'
+import { computed } from 'vue'
 
-const token = ref<string | null>(null)
-const isClient = typeof window !== 'undefined'
+export const useAuth = () => {
+  const config = useRuntimeConfig()
 
-export function useAuth() {
-  const router = useRouter()
+  const token = useState<string | null>('auth_token', () => null)
+  const role = useState<string | null>('auth_role', () => null)
 
-  onMounted(() => {
-    if (isClient) token.value = localStorage.getItem('jwt')
-  })
+  const isAuthenticated = computed(() => !!token.value)
 
   const login = async (email: string, password: string) => {
-    try {
-      const res = await $fetch('/dashboard/v1/auth/login', {
+    const res = await $fetch<any>(
+      `${config.public.apiBase}/dashboard/v1/auth/login`,
+      {
         method: 'POST',
-        baseURL: useRuntimeConfig().public.apiBase,
-        body: { email, password },
-      })
+        body: { email, password }
+      }
+    )
 
-      token.value = (res as any).token
-      if (isClient && token.value) localStorage.setItem('jwt', token.value)
+    console.log('LOGIN RES:', res)
 
-      router.push('/dashboard')
-    } catch (err) {
-      console.error(err)
-      alert('Login failed')
-    }
+    // ✅ save to state
+    token.value = res.token
+    role.value = res.role
+
+    // ✅ save to localStorage (PENTING)
+    localStorage.setItem('jwt', res.token)
+
+    await navigateTo('/dashboard')
   }
 
-  const logout = () => {
+  const logout = async () => {
     token.value = null
-    if (isClient) localStorage.removeItem('jwt')
-    router.push('/login')
+    role.value = null
+
+    // ✅ clear storage
+    localStorage.removeItem('jwt')
+
+    await navigateTo('/login')
   }
 
-  const isAuthenticated = () => !!token.value
-
-  return { token, login, logout, isAuthenticated }
+  return {
+    token,
+    role,
+    isAuthenticated,
+    login,
+    logout
+  }
 }
