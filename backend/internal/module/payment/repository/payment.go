@@ -3,13 +3,16 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type Payment struct {
-	ID     string
-	Amount int64
-	Status string
-	UserID string
+	ID        string
+	Merchant  string
+	Amount    int64
+	Status    string
+	CreatedAt time.Time
+	UserID    string
 }
 
 type Repo struct {
@@ -22,7 +25,7 @@ func New(db *sql.DB) *Repo {
 
 func (r *Repo) ListByUser(userID string) ([]Payment, error) {
 	rows, err := r.DB.Query(
-		`SELECT id, amount, status, user_id FROM payments WHERE user_id = ? ORDER BY id DESC`,
+		`SELECT id, merchant, amount, status, created_at, user_id FROM payments WHERE user_id = ? ORDER BY created_at DESC`,
 		userID,
 	)
 	if err != nil {
@@ -33,7 +36,7 @@ func (r *Repo) ListByUser(userID string) ([]Payment, error) {
 	var out []Payment
 	for rows.Next() {
 		var p Payment
-		if err := rows.Scan(&p.ID, &p.Amount, &p.Status, &p.UserID); err != nil {
+		if err := rows.Scan(&p.ID, &p.Merchant, &p.Amount, &p.Status, &p.CreatedAt, &p.UserID); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -41,15 +44,15 @@ func (r *Repo) ListByUser(userID string) ([]Payment, error) {
 	return out, rows.Err()
 }
 
-// ✅ NEW: Get payment by ID
+// Get payment by ID
 func (r *Repo) GetByID(id string) (*Payment, error) {
 	row := r.DB.QueryRow(
-		`SELECT id, amount, status, user_id FROM payments WHERE id = ?`,
+		`SELECT id, merchant, amount, status, created_at, user_id FROM payments WHERE id = ?`,
 		id,
 	)
 
 	var p Payment
-	if err := row.Scan(&p.ID, &p.Amount, &p.Status, &p.UserID); err != nil {
+	if err := row.Scan(&p.ID, &p.Merchant, &p.Amount, &p.Status, &p.CreatedAt, &p.UserID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("payment not found")
 		}
@@ -59,7 +62,7 @@ func (r *Repo) GetByID(id string) (*Payment, error) {
 	return &p, nil
 }
 
-// ✅ NEW: Update payment status
+// Update payment status
 func (r *Repo) UpdateStatus(id string, status string) error {
 	result, err := r.DB.Exec(
 		`UPDATE payments SET status = ? WHERE id = ?`,
@@ -79,4 +82,26 @@ func (r *Repo) UpdateStatus(id string, status string) error {
 	}
 
 	return nil
+}
+
+// ✅ NEW: Filter by status
+func (r *Repo) ListByUserAndStatus(userID string, status string) ([]Payment, error) {
+	rows, err := r.DB.Query(
+		`SELECT id, merchant, amount, status, created_at, user_id FROM payments WHERE user_id = ? AND status = ? ORDER BY created_at DESC`,
+		userID, status,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Payment
+	for rows.Next() {
+		var p Payment
+		if err := rows.Scan(&p.ID, &p.Merchant, &p.Amount, &p.Status, &p.CreatedAt, &p.UserID); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }

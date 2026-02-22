@@ -41,7 +41,7 @@ func main() {
 	authUC := au.NewAuthUsecase(userRepo, config.JwtSecret, JwtExpiredDuration)
 	authH := ah.NewAuthHandler(authUC)
 
-	// ✅ Initialize payment repository dengan DB
+	// INIT PAYMENT REPOSITORY DENGAN DB
 	paymentRepo := payrepo.New(db)
 	payUC := payuc.New(paymentRepo)
 
@@ -57,31 +57,53 @@ func main() {
 }
 
 func initDB(db *sql.DB) error {
-	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS users (
-		  id INTEGER PRIMARY KEY AUTOINCREMENT,
-		  email TEXT NOT NULL UNIQUE,
-		  password_hash TEXT NOT NULL,
-		  role TEXT NOT NULL
-		);`,
-		// ✅ CREATE PAYMENTS TABLE
-		`CREATE TABLE IF NOT EXISTS payments (
-		  id TEXT PRIMARY KEY,
-		  amount INTEGER NOT NULL,
-		  status TEXT NOT NULL,
-		  user_id TEXT NOT NULL
-		);`,
+	// Create users table
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		email TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		role TEXT NOT NULL
+	);`); err != nil {
+		return err
 	}
 
-	for _, s := range stmts {
-		if _, err := db.Exec(s); err != nil {
-			return err
-		}
+	// Create/update payments table with ALL columns
+	// SQLite doesn't support ALTER TABLE ADD COLUMN easily for all cases,
+	// so we recreate the table if it doesn't have the right schema
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS payments (
+		id TEXT PRIMARY KEY,
+		merchant TEXT NOT NULL,
+		amount INTEGER NOT NULL,
+		status TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		user_id TEXT NOT NULL
+	);`); err != nil {
+		return err
+	}
+
+	// MIGRATION: Add missing columns if table exists with old schema
+	// Check if 'merchant' column exists
+	// var hasMerchant int
+	row := db.QueryRow(`PRAGMA table_info(payments);`)
+	// Simple approach: try to query merchant, if fails, recreate table
+	var testMerchant string
+	err := db.QueryRow(`SELECT merchant FROM payments LIMIT 1`).Scan(&testMerchant)
+	if err != nil && err != sql.ErrNoRows {
+		// Column doesn't exist, recreate table
+		db.Exec(`DROP TABLE IF EXISTS payments`)
+		db.Exec(`CREATE TABLE payments (
+			id TEXT PRIMARY KEY,
+			merchant TEXT NOT NULL,
+			amount INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			user_id TEXT NOT NULL
+		);`)
 	}
 
 	// Seed users
 	var cnt int
-	row := db.QueryRow("SELECT COUNT(1) FROM users")
+	row = db.QueryRow("SELECT COUNT(1) FROM users")
 	if err := row.Scan(&cnt); err != nil {
 		return err
 	}
@@ -97,13 +119,14 @@ func initDB(db *sql.DB) error {
 			"operation@test.com", string(hash), "operation")
 	}
 
-	// ✅ SEED PAYMENTS dengan status yang benar
+	// SEED PAYMENTS
 	if _, err := db.Exec(`
-	INSERT OR IGNORE INTO payments(id,amount,status,user_id) VALUES
-	('pay_001',100000,'processing','1'),
-	('pay_002',250000,'completed','1'),
-	('pay_003',75000,'failed','1'),
-	('pay_004',500000,'processing','2');
+	INSERT OR IGNORE INTO payments(id,merchant,amount,status,created_at,user_id) VALUES
+	('pay_001','Merchant A',100000,'processing','2026-02-20 10:00:00','1'),
+	('pay_002','Merchant B',250000,'completed','2026-02-20 11:00:00','1'),
+	('pay_003','Merchant C',75000,'failed','2026-02-20 12:00:00','1'),
+	('pay_004','Merchant D',500000,'processing','2026-02-20 13:00:00','2'),
+	('pay_005','Merchant E',150000,'completed','2026-02-20 14:00:00','2');
 	`); err != nil {
 		return err
 	}

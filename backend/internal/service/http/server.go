@@ -29,7 +29,6 @@ const (
 func NewServer(apiHandler openapi.ServerInterface, openapiYamlPath string) *Server {
 	r := chi.NewRouter()
 
-	// GLOBAL middleware (CORS + Logging)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
@@ -39,19 +38,27 @@ func NewServer(apiHandler openapi.ServerInterface, openapiYamlPath string) *Serv
 	}))
 	r.Use(middleware.Logging)
 
-	// Preflight
 	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// 🔓 PUBLIC ROUTES (NO JWT)
+	// PUBLIC ROUTES
 	r.Post("/dashboard/v1/auth/login", apiHandler.PostDashboardV1AuthLogin)
 
-	// 🔐 PROTECTED ROUTES (WITH JWT)
+	// PROTECTED ROUTES
 	r.Group(func(priv chi.Router) {
 		priv.Use(JWTMiddleware)
 
-		// ✅ Payments endpoint with query params
+		// Summary endpoint
+		priv.Get("/dashboard/v1/payments/summary", func(w http.ResponseWriter, r *http.Request) {
+			if h, ok := apiHandler.(*api.APIHandler); ok {
+				h.GetDashboardV1PaymentsSummary(w, r)
+				return
+			}
+			http.Error(w, "internal handler error", http.StatusInternalServerError)
+		})
+
+		// Payments list endpoint
 		priv.Get("/dashboard/v1/payments", func(w http.ResponseWriter, r *http.Request) {
 			query := r.URL.Query()
 

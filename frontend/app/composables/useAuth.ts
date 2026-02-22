@@ -6,7 +6,7 @@ export function useAuth() {
   const token = useState<string | null>('auth_token', () => null)
 
   onMounted(() => {
-    // ✅ Use import.meta.client (Nuxt 3+ built-in, type-safe)
+    // Use import.meta.client (Nuxt 3+ built-in, type-safe)
     if (import.meta.client) {
       const stored = localStorage.getItem('jwt')
       if (stored) {

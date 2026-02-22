@@ -1,8 +1,4 @@
-import { useApi } from './useApi'
-
 export const usePayments = () => {
-  const api = useApi()
-
   const list = async (params?: { status?: string; sort?: string }) => {
     const qs = new URLSearchParams()
 
@@ -40,6 +36,26 @@ export const usePayments = () => {
     return []
   }
 
+  // Get summary
+  const getSummary = async () => {
+    const token = useState<string | null>('auth_token')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token.value) {
+      headers['Authorization'] = `Bearer ${token.value}`
+    }
+
+    const res = await fetch(`${useRuntimeConfig().public.apiBase}/dashboard/v1/payments/summary`, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch summary: ${res.status}`)
+    }
+
+    return await res.json()
+  }
+
   const review = async (id: string) => {
     const token = useState<string | null>('auth_token')
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -59,5 +75,5 @@ export const usePayments = () => {
     return await res.json()
   }
 
-  return { list, review }
+  return { list, review, getSummary }
 }

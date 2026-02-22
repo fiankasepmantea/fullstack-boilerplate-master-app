@@ -28,7 +28,13 @@ func (h *APIHandler) GetDashboardV1Payments(
 ) {
 	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
 
-	list, err := h.Payment.ListByUser(userID)
+	filter := payuc.ListFilter{
+		Status: params.Status,
+		Sort:   params.Sort,
+		ID:     params.Id,
+	}
+
+	list, err := h.Payment.ListByUserFiltered(userID, filter)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -37,13 +43,17 @@ func (h *APIHandler) GetDashboardV1Payments(
 	var out []openapi.Payment
 	for _, p := range list {
 		id := p.ID
+		merchant := p.Merchant
 		amt := p.Amount
 		st := p.Status
+		createdAt := p.CreatedAt
 
 		out = append(out, openapi.Payment{
-			Id:     &id,
-			Amount: &amt,
-			Status: &st,
+			Id:        &id,
+			Merchant:  &merchant,
+			Amount:    &amt,
+			Status:    &st,
+			CreatedAt: &createdAt,
 		})
 	}
 
@@ -51,4 +61,21 @@ func (h *APIHandler) GetDashboardV1Payments(
 	json.NewEncoder(w).Encode(openapi.PaymentListResponse{
 		Payments: &out,
 	})
+}
+
+// NEW: Get payment summary
+func (h *APIHandler) GetDashboardV1PaymentsSummary(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
+
+	summary, err := h.Payment.GetSummary(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
 }
