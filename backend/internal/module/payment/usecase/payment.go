@@ -70,6 +70,6 @@ func (u *Usecase) Review(id string) error {
 		return err
 	}
 
-	p.Status = "success"
+	p.Status = "completed"
 	return u.repo.Update(p)
 }

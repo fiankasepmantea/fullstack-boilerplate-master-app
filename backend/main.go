@@ -107,8 +107,8 @@ func initDB(db *sql.DB) error {
 	// ===== SEED PAYMENTS =====
 	if _, err := db.Exec(`
 	INSERT OR IGNORE INTO payments(id,amount,status,user_id) VALUES
-	('pay_001',100000,'pending','1'),
-	('pay_002',250000,'success','1');
+	('pay_001',100000,'processing','1'),
+	('pay_002',250000,'completed','1');
 	`); err != nil {
 		return err
 	}

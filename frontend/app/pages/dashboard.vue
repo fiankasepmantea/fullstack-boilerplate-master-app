@@ -5,8 +5,8 @@
     <div class="flex gap-4 mb-6">
       <select v-model="status" class="border p-2 rounded">
         <option value="">All Status</option>
-        <option value="pending">Pending</option>
-        <option value="success">Success</option>
+        <option value="processing">Processing</option>
+        <option value="completed">Completed</option>
       </select>
 
       <select v-model="sort" class="border p-2 rounded">
@@ -37,7 +37,7 @@
       <div><b>Status:</b> {{ p.status }}</div>
 
       <button
-        v-if="p.status === 'pending'"
+        v-if="p.status === 'processing'"
         @click="doReview(p.id)"
         class="mt-3 bg-green-600 text-white px-3 py-1 rounded"
       >
