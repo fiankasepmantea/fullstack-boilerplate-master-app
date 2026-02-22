@@ -63,3 +63,13 @@ func (u *Usecase) ListByUserFiltered(
 
 	return out, nil
 }
+
+func (u *Usecase) Review(id string) error {
+	p, err := u.repo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	p.Status = "success"
+	return u.repo.Update(p)
+}

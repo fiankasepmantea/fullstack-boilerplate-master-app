@@ -3,12 +3,13 @@ package http
 import (
 	"context"
 	"log"
-	"net/http"
+	nethttp "net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/durianpay/fullstack-boilerplate/internal/api"
 	"github.com/durianpay/fullstack-boilerplate/internal/middleware"
 	"github.com/durianpay/fullstack-boilerplate/internal/openapigen"
 	"github.com/go-chi/chi/v5"
@@ -16,7 +17,7 @@ import (
 )
 
 type Server struct {
-	router http.Handler
+	router nethttp.Handler
 }
 
 const (
@@ -28,7 +29,7 @@ const (
 func NewServer(apiHandler openapigen.ServerInterface, openapiYamlPath string) *Server {
 	r := chi.NewRouter()
 
-	// ✅ GLOBAL middleware — HARUS sebelum route
+	// ✅ GLOBAL middleware
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -38,31 +39,41 @@ func NewServer(apiHandler openapigen.ServerInterface, openapiYamlPath string) *S
 
 	r.Use(middleware.Logging)
 
-	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	// preflight
+	r.Options("/*", func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		w.WriteHeader(nethttp.StatusOK)
 	})
 
-	// ✅ PUBLIC ROUTES (tanpa JWT)
-	r.Group(func(pub chi.Router) {
-		pub.Post("/dashboard/v1/auth/login", apiHandler.PostDashboardV1AuthLogin)
-	})
+	r.Post("/dashboard/v1/auth/login", apiHandler.PostDashboardV1AuthLogin)
 
-	// ✅ PROTECTED ROUTES (pakai JWT)
 	r.Group(func(priv chi.Router) {
 		priv.Use(JWTMiddleware)
 
-		priv.Get("/dashboard/v1/payments",
-			openapigen.Handler(apiHandler).ServeHTTP,
-		)
+		// register OpenAPI routes
+		openapigen.HandlerFromMux(apiHandler, priv)
+
+		// review endpoint
+		priv.Put("/dashboard/v1/payment/{id}/review", func(w nethttp.ResponseWriter, r *nethttp.Request) {
+			id := chi.URLParam(r, "id")
+
+			h := apiHandler.(*api.APIHandler)
+
+			err := h.Payment.Review(id)
+			if err != nil {
+				nethttp.Error(w, err.Error(), 500)
+				return
+			}
+
+			w.WriteHeader(nethttp.StatusOK)
+			w.Write([]byte(`{"status":"reviewed"}`))
+		})
 	})
 
-	return &Server{
-		router: r,
-	}
+	return &Server{router: r}
 }
 
 func (s *Server) Start(addr string) {
-	service := &http.Server{
+	srv := &nethttp.Server{
 		Addr:         addr,
 		Handler:      s.router,
 		ReadTimeout:  readTimeout * time.Second,
@@ -72,26 +83,28 @@ func (s *Server) Start(addr string) {
 
 	go func() {
 		log.Printf("Server listening on %s", addr)
-		if err := service.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Listen error: %v", err)
+		if err := srv.ListenAndServe(); err != nil && err != nethttp.ErrServerClosed {
+			log.Fatalf("listen error: %v", err)
 		}
 	}()
 
+	// graceful shutdown
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
-	log.Println("Shutting down gracefully...")
+	log.Println("Shutting down...")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := service.Shutdown(ctx); err != nil {
-		log.Fatalf("Forced shutdown: %v", err)
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("shutdown error: %v", err)
 	}
 
-	log.Println("Server stopped cleanly ✔")
+	log.Println("Server stopped ✔")
 }
 
-func (s *Server) Routes() http.Handler {
+func (s *Server) Routes() nethttp.Handler {
 	return s.router
 }
