@@ -12,26 +12,51 @@ export const usePayments = () => {
     const q = qs.toString()
     const url = '/dashboard/v1/payments' + (q ? `?${q}` : '')
 
-    const res: any = await api.get(url)
+    const token = useState<string | null>('auth_token')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token.value) {
+      headers['Authorization'] = `Bearer ${token.value}`
+    }
 
-    console.log('RAW PAYMENT RES:', res)
+    const res = await fetch(`${useRuntimeConfig().public.apiBase}${url}`, {
+      method: 'GET',
+      headers,
+    })
 
-    // 🔥 HANDLE kalau string
-    const data =
-      typeof res === 'string'
-        ? JSON.parse(res)
-        : res
+    if (!res.ok) {
+      throw new Error(`Failed to fetch payments: ${res.status}`)
+    }
 
-    console.log('PARSED PAYMENT RES:', data)
+    const data = await res.json()
+    console.log('RAW PAYMENT RES:', data)
 
-    if (Array.isArray(data)) return data
-    if (Array.isArray(data?.payments)) return data.payments
+    if (Array.isArray(data?.payments)) {
+      return data.payments
+    }
+    if (Array.isArray(data)) {
+      return data
+    }
 
     return []
   }
 
   const review = async (id: string) => {
-    return await api.put(`/dashboard/v1/payment/${id}/review`)
+    const token = useState<string | null>('auth_token')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token.value) {
+      headers['Authorization'] = `Bearer ${token.value}`
+    }
+
+    const res = await fetch(`${useRuntimeConfig().public.apiBase}/dashboard/v1/payment/${id}/review`, {
+      method: 'PUT',
+      headers,
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to review payment: ${res.status}`)
+    }
+
+    return await res.json()
   }
 
   return { list, review }

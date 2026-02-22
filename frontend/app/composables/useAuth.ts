@@ -1,49 +1,50 @@
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from '#app'
 
-export const useAuth = () => {
-  const config = useRuntimeConfig()
-
+export function useAuth() {
+  const router = useRouter()
   const token = useState<string | null>('auth_token', () => null)
-  const role = useState<string | null>('auth_role', () => null)
 
-  const isAuthenticated = computed(() => !!token.value)
+  onMounted(() => {
+    // ✅ Use import.meta.client (Nuxt 3+ built-in, type-safe)
+    if (import.meta.client) {
+      const stored = localStorage.getItem('jwt')
+      if (stored) {
+        token.value = stored
+      }
+    }
+  })
 
   const login = async (email: string, password: string) => {
-    const res = await $fetch<any>(
-      `${config.public.apiBase}/dashboard/v1/auth/login`,
-      {
+    try {
+      const res = await $fetch('/dashboard/v1/auth/login', {
         method: 'POST',
-        body: { email, password }
+        baseURL: useRuntimeConfig().public.apiBase,
+        body: { email, password },
+      })
+
+      token.value = (res as any).token
+      
+      if (import.meta.client && token.value) {
+        localStorage.setItem('jwt', token.value)
       }
-    )
-
-    console.log('LOGIN RES:', res)
-
-    // ✅ save to state
-    token.value = res.token
-    role.value = res.role
-
-    // ✅ save to localStorage (PENTING)
-    localStorage.setItem('jwt', res.token)
-
-    await navigateTo('/dashboard')
+      
+      router.push('/dashboard')
+    } catch (err) {
+      console.error(err)
+      alert('Login failed')
+    }
   }
 
-  const logout = async () => {
+  const logout = () => {
     token.value = null
-    role.value = null
-
-    // ✅ clear storage
-    localStorage.removeItem('jwt')
-
-    await navigateTo('/login')
+    if (import.meta.client) {
+      localStorage.removeItem('jwt')
+    }
+    router.push('/login')
   }
 
-  return {
-    token,
-    role,
-    isAuthenticated,
-    login,
-    logout
-  }
+  const isAuthenticated = () => !!token.value
+
+  return { token, login, logout, isAuthenticated }
 }

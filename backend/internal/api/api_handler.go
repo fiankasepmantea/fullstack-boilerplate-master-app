@@ -2,12 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/durianpay/fullstack-boilerplate/internal/middleware"
 	ah "github.com/durianpay/fullstack-boilerplate/internal/module/auth/handler"
 	payuc "github.com/durianpay/fullstack-boilerplate/internal/module/payment/usecase"
 	openapi "github.com/durianpay/fullstack-boilerplate/internal/openapigen"
-	"net/http"
-	"strconv"
 )
 
 type APIHandler struct {
@@ -28,22 +28,22 @@ func (h *APIHandler) GetDashboardV1Payments(
 ) {
 	userID, _ := r.Context().Value(middleware.UserIDKey).(string)
 
+	// PASS FILTER PARAMS TO USECASE
 	filter := payuc.ListFilter{
 		Status: params.Status,
-		ID:     params.Id,
 		Sort:   params.Sort,
 	}
 
 	list, err := h.Payment.ListByUserFiltered(userID, filter)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var out []openapi.Payment
 	for _, p := range list {
 		id := p.ID
-		amt := strconv.FormatInt(p.Amount, 10)
+		amt := p.Amount
 		st := p.Status
 
 		out = append(out, openapi.Payment{
@@ -53,8 +53,8 @@ func (h *APIHandler) GetDashboardV1Payments(
 		})
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(openapi.PaymentListResponse{
 		Payments: &out,
 	})
 }
-

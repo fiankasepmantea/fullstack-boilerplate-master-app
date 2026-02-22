@@ -21,23 +21,6 @@ func NewAuthHandler(authUC authUsecase.AuthUsecase) *AuthHandler {
 	}
 }
 
-// func (a *AuthHandler) PostDashboardV1AuthLogin(w http.ResponseWriter, r *http.Request) {
-// 	var req openapigen.PostDashboardV1AuthLoginJSONBody
-// 	if !decodeJSONBody(w, r, &req) {
-// 		return
-// 	}
-// 	token, user, err := a.authUC.Login(req.Email, req.Password)
-// 	if err != nil {
-// 		transport.WriteError(w, err)
-// 		return
-// 	}
-
-// 	err = json.NewEncoder(w).Encode(openapigen.LoginResponse{Email: &user.Email, Role: &user.Role, Token: &token})
-// 	if err != nil {
-// 		transport.WriteAppError(w, entity.ErrorInternal("internal server error"))
-// 		return
-// 	}
-// }
 func (a *AuthHandler) PostDashboardV1AuthLogin(w http.ResponseWriter, r *http.Request) {
 	var req openapigen.PostDashboardV1AuthLoginJSONBody
 	if !decodeJSONBody(w, r, &req) {
@@ -53,14 +36,12 @@ func (a *AuthHandler) PostDashboardV1AuthLogin(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	err = json.NewEncoder(w).Encode(openapigen.LoginResponse{
+	if err := json.NewEncoder(w).Encode(openapigen.LoginResponse{
 		Email: &user.Email,
 		Role:  &user.Role,
 		Token: &token,
-	})
-	if err != nil {
-		transport.WriteAppError(w, entity.ErrorInternal("internal server error"))
-		return
+	}); err != nil {
+		transport.WriteAppError(w, entity.ErrorInternal("failed to encode response"))
 	}
 }
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {

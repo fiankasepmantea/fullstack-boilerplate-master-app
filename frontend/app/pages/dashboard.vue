@@ -7,12 +7,13 @@
         <option value="">All Status</option>
         <option value="processing">Processing</option>
         <option value="completed">Completed</option>
+        <option value="failed">Failed</option>
       </select>
 
       <select v-model="sort" class="border p-2 rounded">
         <option value="">No Sort</option>
-        <option value="amount_asc">Amount ↑</option>
-        <option value="amount_desc">Amount ↓</option>
+        <option value="amount">Amount ↑</option>
+        <option value="-amount">Amount ↓</option>
       </select>
 
       <button
@@ -34,7 +35,9 @@
     >
       <div><b>ID:</b> {{ p.id }}</div>
       <div><b>Amount:</b> {{ p.amount }}</div>
-      <div><b>Status:</b> {{ p.status }}</div>
+      <div><b>Status:</b> 
+        <span :class="statusClass(p.status)">{{ p.status }}</span>
+      </div>
 
       <button
         v-if="p.status === 'processing'"
@@ -73,5 +76,18 @@ onMounted(load)
 const doReview = async (id: string) => {
   await review(id)
   await load()
+}
+
+const statusClass = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'text-green-600 font-bold'
+    case 'processing':
+      return 'text-yellow-600 font-bold'
+    case 'failed':
+      return 'text-red-600 font-bold'
+    default:
+      return 'text-gray-600'
+  }
 }
 </script>

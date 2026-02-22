@@ -13,5 +13,12 @@ export default defineNuxtConfig({
 
   tailwindcss: {
     cssPath: '~/assets/css/main.css'
+  },
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        types: ['node', 'nuxt']
+      }
+    }
   }
 })
